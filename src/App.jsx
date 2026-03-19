@@ -1,53 +1,33 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { initializeApp } from 'firebase/app'
+import { getDatabase, ref, get, set, remove, onValue, off } from 'firebase/database'
 
-const BIN_ID = '67bc7f79b7ec241ddc846402'
-const API_KEY = '$2a$10$YpEq/qD5qOdKkKye1lbRdejCX9I0674Lu7EtbYSRQITnh/D14oUB.'
-const BASE = 'https://api.jsonbin.io/v3/b'
+const firebaseConfig = {
+  apiKey:            "AIzaSyCpmkFwUcVbZyTW23No2mWDX-QMnRcPAjY",
+  authDomain:        "fanball26-ee7d6.firebaseapp.com",
+  databaseURL:       "https://fanball26-ee7d6-default-rtdb.firebaseio.com",
+  projectId:         "fanball26-ee7d6",
+  storageBucket:     "fanball26-ee7d6.firebasestorage.app",
+  messagingSenderId: "467265076221",
+  appId:             "1:467265076221:web:c14775a83f36ac7440b794",
+}
+const _app = initializeApp(firebaseConfig)
+const _db  = getDatabase(_app)
 
 async function sget(key) {
-  try {
-    const r = await fetch(BASE + '/' + BIN_ID + '/latest', {
-      headers: { 'X-Master-Key': API_KEY }
-    })
-    const d = await r.json()
-    return d.record[key] !== undefined ? d.record[key] : null
-  } catch { return null }
+  try { const s = await get(ref(_db, key.replace(/:/g,'_'))); return s.exists() ? s.val() : null; }
+  catch { return null; }
 }
 async function sset(key, val) {
-  try {
-    const r = await fetch(BASE + '/' + BIN_ID + '/latest', {
-      headers: { 'X-Master-Key': API_KEY }
-    })
-    const d = await r.json()
-    const updated = Object.assign({}, d.record, { [key]: val })
-    await fetch(BASE + '/' + BIN_ID, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify(updated)
-    })
-  } catch {}
+  try { await set(ref(_db, key.replace(/:/g,'_')), val); } catch {}
 }
 async function sdel(key) {
-  try {
-    const r = await fetch(BASE + '/' + BIN_ID + '/latest', {
-      headers: { 'X-Master-Key': API_KEY }
-    })
-    const d = await r.json()
-    const updated = Object.assign({}, d.record)
-    delete updated[key]
-    await fetch(BASE + '/' + BIN_ID, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify(updated)
-    })
-  } catch {}
+  try { await remove(ref(_db, key.replace(/:/g,'_'))); } catch {}
 }
 function slisten(key, cb) {
-  const interval = setInterval(async function() {
-    const val = await sget(key)
-    cb(val)
-  }, 2000)
-  return function() { clearInterval(interval) }
+  const r = ref(_db, key.replace(/:/g,'_'))
+  onValue(r, s => cb(s.exists() ? s.val() : null))
+  return () => off(r)
 }
 
 const pts = ({ R=0, HR=0, RBI=0, SB=0, AVG=0 } = {}) =>
