@@ -1591,12 +1591,21 @@ export default function App() {
     setMode("draft");
   }
 
-  if (mode === "loading") {
+    if (mode === "loading") {
     return (
       <div>
         <style>{CSS}</style>
-        <div className="app" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+        <div className="app" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",flexDirection:"column",gap:20}}>
           <div style={{fontSize:28,color:"var(--green)",letterSpacing:4,fontWeight:800}}>LOADING…</div>
+          <button style={{background:"var(--green)",color:"#000",padding:"12px 24px",borderRadius:10,fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}
+            onClick={function(){
+              var teams = randomizeTeams();
+              var newSetup = { teams: teams, createdAt: Date.now() };
+              var newDraft = { picks: [] };
+              setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft); setMode("draft");
+            }}>
+            SKIP → ENTER DRAFT
+          </button>
         </div>
       </div>
     );
