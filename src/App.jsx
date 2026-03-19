@@ -1539,31 +1539,34 @@ export default function App() {
   var _mt = useState(null); var myTeamIdx = _mt[0]; var setMyTeamIdx = _mt[1];
 
   useEffect(function() {
-    (async function() {
-      var results = await Promise.race([
-        Promise.all([sget(KEYS.mode), sget(KEYS.setup), sget(KEYS.draft)]),
-        new Promise(function(res){ setTimeout(function(){ res([null,null,null]); }, 5000); })
-      ]);
-      var savedMode = results[0]; var savedSetup = results[1]; var savedDraft = results[2];
-      var savedClaim = lsGet(KEYS.claim);
+    // Show app immediately — no blocking on backend
+    var savedClaim = lsGet(KEYS.claim);
+    if (savedClaim !== null) setMyTeamIdx(savedClaim);
 
-      if (savedMode && savedSetup && savedDraft) {
-        // Existing draft — restore it
-        setSetup(savedSetup); setPool(SAMPLE_POOL); setDraft(savedDraft);
-        if (savedClaim !== null) setMyTeamIdx(savedClaim);
-        var draftDone = savedDraft.picks && savedDraft.picks.length >= TEAMS * ROUNDS;
-        setMode(draftDone ? "done" : "draft");
-      } else {
-        // First load — auto-initialize with randomized teams, go straight to draft/claim
-        var teams = randomizeTeams();
-        var newSetup = { teams: teams, createdAt: Date.now(), randomized: true };
-        var newDraft = { picks: [] };
-        await sset(KEYS.setup, newSetup);
-        await sset(KEYS.draft, newDraft);
-        await sset(KEYS.mode, "draft");
-        setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft);
-        setMode("draft");
-      }
+    // Try backend in background with short timeout
+    (async function() {
+      try {
+        var results = await Promise.race([
+          Promise.all([sget(KEYS.mode), sget(KEYS.setup), sget(KEYS.draft)]),
+          new Promise(function(res){ setTimeout(function(){ res([null,null,null]); }, 3000); })
+        ]);
+        var savedMode = results[0]; var savedSetup = results[1]; var savedDraft = results[2];
+        if (savedMode && savedSetup && savedDraft) {
+          setSetup(savedSetup); setPool(SAMPLE_POOL); setDraft(savedDraft);
+          var draftDone = savedDraft.picks && savedDraft.picks.length >= TEAMS * ROUNDS;
+          setMode(draftDone ? "done" : "draft");
+          return;
+        }
+      } catch {}
+      // Fresh start
+      var teams = randomizeTeams();
+      var newSetup = { teams: teams, createdAt: Date.now(), randomized: true };
+      var newDraft = { picks: [] };
+      setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft);
+      setMode("draft");
+      sset(KEYS.setup, newSetup);
+      sset(KEYS.draft, newDraft);
+      sset(KEYS.mode, "draft");
     })();
   }, []);
 
@@ -1576,36 +1579,24 @@ export default function App() {
     setMode("done");
   }
 
-  async function resetAll() {
-    await Promise.all([KEYS.mode, KEYS.setup, KEYS.draft].map(function(k){ return sdel(k); }));
+  function resetAll() {
     lsDel(KEYS.claim);
-    setMyTeamIdx(null); setSetup(null); setPool(null); setDraft(null); setMode("loading");
-    // Re-init immediately
     var teams = randomizeTeams();
     var newSetup = { teams: teams, createdAt: Date.now(), randomized: true };
     var newDraft = { picks: [] };
-    await sset(KEYS.setup, newSetup);
-    await sset(KEYS.draft, newDraft);
-    await sset(KEYS.mode, "draft");
-    setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft);
-    setMode("draft");
+    setMyTeamIdx(null); setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft); setMode("draft");
+    sset(KEYS.setup, newSetup);
+    sset(KEYS.draft, newDraft);
+    sset(KEYS.mode, "draft");
+    Promise.all([KEYS.mode, KEYS.setup, KEYS.draft].map(function(k){ return sdel(k); }));
   }
 
-    if (mode === "loading") {
+  if (mode === "loading") {
     return (
       <div>
         <style>{CSS}</style>
-        <div className="app" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",flexDirection:"column",gap:20}}>
+        <div className="app" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
           <div style={{fontSize:28,color:"var(--green)",letterSpacing:4,fontWeight:800}}>LOADING…</div>
-          <button style={{background:"var(--green)",color:"#000",padding:"12px 24px",borderRadius:10,fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}
-            onClick={function(){
-              var teams = randomizeTeams();
-              var newSetup = { teams: teams, createdAt: Date.now() };
-              var newDraft = { picks: [] };
-              setSetup(newSetup); setPool(SAMPLE_POOL); setDraft(newDraft); setMode("draft");
-            }}>
-            SKIP → ENTER DRAFT
-          </button>
         </div>
       </div>
     );
@@ -1645,3 +1636,4 @@ export default function App() {
     </div>
   );
 }
+
