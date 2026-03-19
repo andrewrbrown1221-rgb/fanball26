@@ -1520,7 +1520,10 @@ export default function App() {
 
   useEffect(function() {
     (async function() {
-      var results = await Promise.all([sget(KEYS.mode), sget(KEYS.setup), sget(KEYS.draft)]);
+      var results = await Promise.race([
+        Promise.all([sget(KEYS.mode), sget(KEYS.setup), sget(KEYS.draft)]),
+        new Promise(function(res){ setTimeout(function(){ res([null,null,null]); }, 5000); })
+      ]);
       var savedMode = results[0]; var savedSetup = results[1]; var savedDraft = results[2];
       var savedClaim = lsGet(KEYS.claim);
 
